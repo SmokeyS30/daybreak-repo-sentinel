@@ -63,7 +63,7 @@ export function loadConfig(env = process.env, overrides = {}) {
     },
     scanIntervalMinutes: positiveInteger(overrides.scanIntervalMinutes || env.SCAN_INTERVAL_MINUTES, 15, 5, 1440),
     maxRepositoriesPerScan: positiveInteger(overrides.maxRepositoriesPerScan || env.MAX_REPOSITORIES_PER_SCAN, 250, 1, 1000),
-    publicMetrics: String(overrides.publicMetrics ?? env.PUBLIC_METRICS ?? 'true') === 'true',
+    publicMetrics: String(overrides.publicMetrics ?? env.PUBLIC_METRICS ?? 'false') === 'true',
     autoPublishIssues: String(overrides.autoPublishIssues ?? env.AUTO_PUBLISH_ISSUES ?? 'false') === 'true'
   };
 

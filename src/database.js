@@ -54,12 +54,10 @@ export function openDatabase(filePath) {
       id TEXT PRIMARY KEY, installation_id INTEGER NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
       summary TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS approval_actions (
-      id TEXT PRIMARY KEY, installation_id INTEGER NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
-      repo_id INTEGER REFERENCES repositories(id) ON DELETE CASCADE, kind TEXT NOT NULL,
-      payload_json TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('proposed','approved','completed','failed','cancelled')),
-      requested_by INTEGER, approved_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-    );
+    -- approval_actions was scaffolded in v0.1.0 but never used; the approval
+    -- gate for consequential changes is the explicit confirmation step
+    -- (e.g. typing PUBLISH before a security report is posted as an issue).
+    DROP TABLE IF EXISTS approval_actions;
     CREATE INDEX IF NOT EXISTS idx_repo_installation ON repositories(installation_id, full_name);
     CREATE INDEX IF NOT EXISTS idx_findings_installation ON findings(installation_id, status, severity);
     CREATE INDEX IF NOT EXISTS idx_findings_repo ON findings(repo_id, status);

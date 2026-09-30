@@ -12,6 +12,13 @@ function errorDetail(payload, status) {
   return safeText(payload?.message || `GitHub API returned HTTP ${status}.`, 300);
 }
 
+function isRateLimitResponse(response, payload) {
+  try {
+    if (response.headers?.get?.('x-ratelimit-remaining') === '0') return true;
+  } catch { /* header lookup is best-effort */ }
+  return /rate limit/i.test(payload?.message || '');
+}
+
 export class GitHubClient {
   constructor(config, { fetchImpl = fetch } = {}) {
     this.config = config;
@@ -54,6 +61,9 @@ export class GitHubClient {
       const error = new Error(errorDetail(payload, response.status));
       error.status = response.status;
       error.github = true;
+      // Rate-limit responses must stay distinguishable: callers treat them as
+      // "try again later", never as "the resource does not exist / is disabled".
+      if (response.status === 429 || isRateLimitResponse(response, payload)) error.rateLimited = true;
       throw error;
     }
     return payload;
@@ -124,7 +134,14 @@ export class GitHubClient {
 
   async optional(installationId, apiPath) {
     try { return await this.installationRequest(installationId, apiPath); }
-    catch (error) { if ([403, 404, 422].includes(error.status)) return null; throw error; }
+    catch (error) {
+      // A rate-limited request is not a negative answer: let it propagate so
+      // the scanner marks the repository scan as failed and retries instead
+      // of filing false "not protected / not enabled" findings.
+      if (error.rateLimited) throw error;
+      if ([403, 404, 422].includes(error.status)) return null;
+      throw error;
+    }
   }
 
   async content(installationId, owner, repo, filePath, ref) {
