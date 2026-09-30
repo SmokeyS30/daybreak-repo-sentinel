@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Daybreak Repo Sentinel">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#61e7dc"/><stop offset="1" stop-color="#5ca8ff"/></linearGradient></defs>
+  <path fill="#07111f" stroke="url(#g)" stroke-width="6" d="M64 8 108 25v33c0 29-17 49-44 62C37 107 20 87 20 58V25z"/>
+  <path fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" d="m40 66 15 15 33-38"/>
+</svg>

@@ -1,0 +1,29 @@
+{
+  "name": "daybreak-repo-sentinel",
+  "version": "0.1.0",
+  "description": "An open-source, always-on GitHub App for continuous repository security monitoring and approval-gated remediation.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node --watch server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check src/*.js && node --check public/app.js && npm test"
+  },
+  "keywords": [
+    "github-app",
+    "security",
+    "code-scanning",
+    "secret-scanning",
+    "dependabot",
+    "ai-security"
+  ],
+  "author": "SmokeyS30 and contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SmokeyS30/daybreak-repo-sentinel.git"
+  }
+}

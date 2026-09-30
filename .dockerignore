@@ -1,0 +1,9 @@
+.git
+.github
+data
+test
+docs
+.env
+*.sqlite*
+*.pem
+*.key

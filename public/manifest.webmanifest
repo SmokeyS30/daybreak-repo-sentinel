@@ -1,0 +1,10 @@
+{
+  "name": "Daybreak Repo Sentinel",
+  "short_name": "Repo Sentinel",
+  "description": "Continuous GitHub repository security monitoring.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050b13",
+  "theme_color": "#07111f",
+  "icons": [{ "src": "/sentinel.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="Continuous, approval-gated GitHub repository security monitoring.">
+  <title>Daybreak Repo Sentinel</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/sentinel.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><img src="/sentinel.svg" alt=""><span>Daybreak Repo Sentinel</span></a>
+    <div class="actions"><span id="identity"></span><a id="login" class="button secondary" href="/auth/github">Sign in with GitHub</a><button id="logout" class="button ghost hidden">Sign out</button></div>
+  </header>
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">OPEN-SOURCE GITHUB DEFENSE</p><h1>Your repositories deserve a night watch.</h1><p class="lede">Signed webhooks catch new security events immediately. Scheduled rescans find configuration drift. AI explains sanitized findings; you approve consequential changes.</p><div class="hero-actions"><a id="install" class="button primary" href="/github/install">Install GitHub App</a><a class="button secondary" href="https://github.com/SmokeyS30/daybreak-repo-sentinel">View source</a></div></div>
+      <div class="status-card"><div class="pulse"></div><p class="label">MONITORING STATUS</p><h2 id="monitoring">Checking…</h2><dl><div><dt>Installations</dt><dd id="metric-installations">—</dd></div><div><dt>Repositories</dt><dd id="metric-repositories">—</dd></div><div><dt>Urgent findings</dt><dd id="metric-urgent">—</dd></div></dl><p id="last-event" class="muted">No event data yet.</p></div>
+    </section>
+
+    <section class="principles">
+      <article><span>01</span><h3>Continuous</h3><p>Webhook monitoring plus scheduled full scans catches new repositories and missed events.</p></article>
+      <article><span>02</span><h3>Least privilege</h3><p>Short-lived installation tokens, encrypted user tokens and no personal access tokens.</p></article>
+      <article><span>03</span><h3>Approval gated</h3><p>Monitoring is automatic. Repository changes and published reports require an explicit owner action.</p></article>
+    </section>
+
+    <section id="dashboard" class="dashboard hidden">
+      <div class="section-heading"><div><p class="eyebrow">YOUR CONTROL CENTER</p><h2>Installed repositories</h2></div><select id="installation-select" aria-label="GitHub App installation"></select></div>
+      <div class="dashboard-grid">
+        <aside class="panel controls"><h3 id="account-name">Installation</h3><p id="scan-meta" class="muted">Waiting for a scan.</p><button id="scan" class="button primary block">Scan now</button><button id="pause" class="button secondary block">Pause monitoring</button><p class="fine">Emergency pause stops scheduled scanning. Signed webhooks remain acknowledged and auditable.</p></aside>
+        <section class="panel summary"><p class="label">LATEST SUMMARY</p><pre id="summary">No completed scan yet.</pre></section>
+      </div>
+      <div class="dashboard-grid lower">
+        <section class="panel"><div class="panel-heading"><h3>Open findings</h3><span id="finding-count" class="badge">0</span></div><div id="findings" class="list empty">No open findings.</div></section>
+        <section class="panel"><div class="panel-heading"><h3>Recent activity</h3><span class="live-dot">LIVE</span></div><div id="events" class="list empty">No events received.</div></section>
+      </div>
+    </section>
+  </main>
+  <footer><p>Defensive monitoring only. Sentinel reports risk; it does not guarantee that an account cannot be compromised.</p></footer>
+</body>
+</html>
