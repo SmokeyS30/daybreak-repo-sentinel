@@ -7,7 +7,7 @@ function extractOutputText(payload) {
   return parts.join('\n');
 }
 
-export function createAiTriage(config, { fetchImpl = fetch } = {}) {
+export function createAiTriage(config, { fetchImpl = fetch, stats = null } = {}) {
   const apiKey = config.apiKey?.trim();
   const model = config.model?.trim() || 'gpt-5.4-mini';
   const baseUrl = new URL(config.baseUrl || 'https://api.openai.com/v1');
@@ -18,6 +18,7 @@ export function createAiTriage(config, { fetchImpl = fetch } = {}) {
     model,
     async summarize({ findings, deterministic }) {
       if (!apiKey) return deterministic;
+      if (stats) stats.openaiCalls++;
       const signals = findings.slice(0, 80).map((item) => ({ severity: item.severity, title: safeText(item.title, 160), source: safeText(item.source, 60) }));
       const response = await fetchImpl(`${baseUrl.toString().replace(/\/$/, '')}/responses`, {
         method: 'POST',
