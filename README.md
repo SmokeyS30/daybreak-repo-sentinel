@@ -89,11 +89,16 @@ Subscribe to these events:
    - `GITHUB_APP_SLUG`
    - `GITHUB_CLIENT_ID`
    - `GITHUB_CLIENT_SECRET`
-   - `GITHUB_PRIVATE_KEY`
+   - `GITHUB_PRIVATE_KEY_FILE=/etc/secrets/github-app.pem`
    - `GITHUB_WEBHOOK_SECRET`
 4. Optionally set `OPENAI_API_KEY` for sanitized AI summaries.
 5. Confirm the service reports `configured: true` at `/healthz`.
 6. Install the GitHub App only on repositories you authorize.
+
+Add the GitHub App private key as a Render **Secret File** named
+`github-app.pem`. Render mounts it at `/etc/secrets/github-app.pem`, so the PEM
+never needs to be pasted into an environment variable. Inline
+`GITHUB_PRIVATE_KEY` remains supported for local development.
 
 Never commit `.env`, a GitHub App private key, webhook secret, OAuth client secret, OpenAI key, or Render-generated encryption key.
 

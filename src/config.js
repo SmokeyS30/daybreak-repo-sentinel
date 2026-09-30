@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 function positiveInteger(value, fallback, minimum, maximum) {
   const parsed = Number.parseInt(value || '', 10);
@@ -8,6 +9,20 @@ function positiveInteger(value, fallback, minimum, maximum) {
 
 function normalizePrivateKey(value = '') {
   return value.trim().replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+}
+
+function loadPrivateKey(env, overrides = {}) {
+  const inlineKey = overrides.privateKey || env.GITHUB_PRIVATE_KEY;
+  if (inlineKey) return normalizePrivateKey(inlineKey);
+
+  const filePath = overrides.privateKeyFile || env.GITHUB_PRIVATE_KEY_FILE;
+  if (!filePath) return '';
+  try {
+    return normalizePrivateKey(readFileSync(path.resolve(filePath), 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
 }
 
 function safeBaseUrl(value, production) {
@@ -36,7 +51,7 @@ export function loadConfig(env = process.env, overrides = {}) {
       appSlug: String(overrides.github?.appSlug || env.GITHUB_APP_SLUG || '').trim(),
       clientId: String(overrides.github?.clientId || env.GITHUB_CLIENT_ID || '').trim(),
       clientSecret: String(overrides.github?.clientSecret || env.GITHUB_CLIENT_SECRET || '').trim(),
-      privateKey: normalizePrivateKey(overrides.github?.privateKey || env.GITHUB_PRIVATE_KEY),
+      privateKey: loadPrivateKey(env, overrides.github),
       webhookSecret: String(overrides.github?.webhookSecret || env.GITHUB_WEBHOOK_SECRET || '').trim()
     },
     sessionSecret: String(overrides.sessionSecret || env.SESSION_SECRET || '').trim(),

@@ -21,8 +21,8 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
-      - key: GITHUB_PRIVATE_KEY
-        sync: false
+      - key: GITHUB_PRIVATE_KEY_FILE
+        value: /etc/secrets/github-app.pem
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
       - key: OPENAI_API_KEY
