@@ -20,9 +20,10 @@ function isRateLimitResponse(response, payload) {
 }
 
 export class GitHubClient {
-  constructor(config, { fetchImpl = fetch } = {}) {
+  constructor(config, { fetchImpl = fetch, stats = null } = {}) {
     this.config = config;
     this.fetch = fetchImpl;
+    this.stats = stats;
     this.installationTokens = new Map();
   }
 
@@ -42,6 +43,7 @@ export class GitHubClient {
     if (!allowedApi && !allowedOauth) {
       throw new Error('Refused a request outside the fixed GitHub API hosts.');
     }
+    if (this.stats) this.stats.outboundGithubCalls++;
     const response = await this.fetch(url, {
       method,
       headers: {
@@ -63,7 +65,10 @@ export class GitHubClient {
       error.github = true;
       // Rate-limit responses must stay distinguishable: callers treat them as
       // "try again later", never as "the resource does not exist / is disabled".
-      if (response.status === 429 || isRateLimitResponse(response, payload)) error.rateLimited = true;
+      if (response.status === 429 || isRateLimitResponse(response, payload)) {
+        error.rateLimited = true;
+        if (this.stats) this.stats.githubRateLimitedHits++;
+      }
       throw error;
     }
     return payload;
