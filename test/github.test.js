@@ -19,3 +19,29 @@ test('refuses arbitrary outbound hosts', async () => {
   await assert.rejects(() => client.request('https://attacker.invalid/'), /fixed GitHub API hosts/);
   await assert.rejects(() => client.request('https://api.github.com.attacker.invalid/'), /fixed GitHub API hosts/);
 });
+
+test('rate-limited responses stay distinguishable and are not swallowed as null', async () => {
+  const rateLimitedFetch = async () => ({
+    status: 403,
+    ok: false,
+    headers: { get: (name) => (String(name).toLowerCase() === 'x-ratelimit-remaining' ? '0' : null) },
+    json: async () => ({ message: 'API rate limit exceeded for installation.' })
+  });
+  const client = new GitHubClient({}, { fetchImpl: rateLimitedFetch });
+  client.installationTokens.set(1, { token: 'test-token', expiresAt: Date.now() + 3_600_000 });
+  const error = await client.optional(1, '/repos/o/r').catch((e) => e);
+  assert.equal(error.rateLimited, true);
+  assert.equal(error.status, 403);
+});
+
+test('plain 404 responses are still treated as absent', async () => {
+  const notFoundFetch = async () => ({
+    status: 404,
+    ok: false,
+    headers: { get: () => null },
+    json: async () => ({ message: 'Not Found' })
+  });
+  const client = new GitHubClient({}, { fetchImpl: notFoundFetch });
+  client.installationTokens.set(1, { token: 'test-token', expiresAt: Date.now() + 3_600_000 });
+  assert.equal(await client.optional(1, '/repos/o/r'), null);
+});
