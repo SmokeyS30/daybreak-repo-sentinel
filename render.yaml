@@ -34,7 +34,7 @@ services:
       - key: MAX_REPOSITORIES_PER_SCAN
         value: "250"
       - key: PUBLIC_METRICS
-        value: "true"
+        value: "false"
       - key: AUTO_PUBLISH_ISSUES
         value: "false"
     disk:
