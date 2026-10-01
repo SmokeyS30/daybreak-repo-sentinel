@@ -42,7 +42,7 @@ export function createSentinelServer(options = {}) {
   // Cumulative API-usage counters for the public stats endpoint. In-memory is
   // enough: the external watchdog samples hourly and tracks deltas itself.
   const startedAt = new Date().toISOString();
-  const stats = { inboundRequests: 0, outboundGithubCalls: 0, githubRateLimitedHits: 0, openaiCalls: 0 };
+  const stats = { inboundRequests: 0, outboundGithubCalls: 0, githubRateLimitedHits: 0, openaiCalls: 0, byRepo: {} };
   const github = options.github || new GitHubClient(config.github, { ...(options.githubOptions || {}), stats });
   const ai = options.ai || createAiTriage(config.openai, { ...(options.aiOptions || {}), stats });
   const requestLog = new Map();
@@ -120,8 +120,10 @@ export function createSentinelServer(options = {}) {
         const counts = config.publicMetrics ? db.publicCounts() : { installations: null, repositories: null, open_findings: null, urgent_findings: null, last_event_at: null };
         return json(response, 200, { configured: config.configured, aiConfigured: ai.configured, monitoring: config.configured, ...counts });
       }
-      // Aggregate API-usage counters only: no per-user, per-repo, or secret
-      // data is exposed here, so this stays public like /api/public/status.
+      // Aggregate API-usage counters plus a per-repository breakdown of the
+      // app's own outbound GitHub API use (repo names are public; no per-user,
+      // token, or secret data is exposed here), so this stays public like
+      // /api/public/status.
       if (request.method === 'GET' && url.pathname === '/api/public/stats') {
         return json(response, 200, { ok: true, startedAt, ...stats });
       }
