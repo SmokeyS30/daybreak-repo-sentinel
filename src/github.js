@@ -4,6 +4,28 @@ import { safeText } from './security.js';
 const API = 'https://api.github.com';
 const WEB = 'https://github.com';
 
+// Matches repo-scoped API paths like /repos/{owner}/{repo}/... so outbound
+// calls can be attributed to the repository they target. Repository names
+// are public (the app only monitors public repos), so the per-repo
+// breakdown stays safe to expose on the public stats endpoint.
+const REPO_PATH = /^\/repos\/([^/]+)\/([^/]+)(?:\/|$)/;
+
+function repoKeyFromPath(pathname) {
+  const match = REPO_PATH.exec(pathname || '');
+  if (!match) return null;
+  try { return `${decodeURIComponent(match[1])}/${decodeURIComponent(match[2])}`; }
+  catch { return `${match[1]}/${match[2]}`; }
+}
+
+function bumpRepoCounter(stats, repoKey, field) {
+  if (!stats) return;
+  if (!stats.byRepo) stats.byRepo = {};
+  const key = repoKey || '_other';
+  let entry = stats.byRepo[key];
+  if (!entry) entry = stats.byRepo[key] = { outboundGithubCalls: 0, githubRateLimitedHits: 0 };
+  entry[field] += 1;
+}
+
 function base64url(value) {
   return Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');
 }
@@ -43,7 +65,10 @@ export class GitHubClient {
     if (!allowedApi && !allowedOauth) {
       throw new Error('Refused a request outside the fixed GitHub API hosts.');
     }
-    if (this.stats) this.stats.outboundGithubCalls++;
+    if (this.stats) {
+      this.stats.outboundGithubCalls++;
+      bumpRepoCounter(this.stats, repoKeyFromPath(target.pathname), 'outboundGithubCalls');
+    }
     const response = await this.fetch(url, {
       method,
       headers: {
@@ -67,7 +92,10 @@ export class GitHubClient {
       // "try again later", never as "the resource does not exist / is disabled".
       if (response.status === 429 || isRateLimitResponse(response, payload)) {
         error.rateLimited = true;
-        if (this.stats) this.stats.githubRateLimitedHits++;
+        if (this.stats) {
+          this.stats.githubRateLimitedHits++;
+          bumpRepoCounter(this.stats, repoKeyFromPath(target.pathname), 'githubRateLimitedHits');
+        }
       }
       throw error;
     }
