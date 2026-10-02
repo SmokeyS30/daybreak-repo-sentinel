@@ -54,7 +54,17 @@ async function loadInstallations() {
   const payload = await api('/api/installations'); state.installations = payload.installations;
   const select = $('installation-select'); select.replaceChildren();
   for (const installation of state.installations) { const option = document.createElement('option'); option.value = installation.id; option.textContent = `${installation.account_login} (${installation.account_type})`; select.append(option); }
-  if (!state.installations.length) { const option = document.createElement('option'); option.textContent = 'Install the GitHub App first'; select.append(option); return; }
+  if (!state.installations.length) {
+    const option = document.createElement('option'); option.textContent = 'Install the GitHub App first'; select.append(option);
+    $('account-name').textContent = 'Not installed';
+    $('scan-meta').textContent = 'Install the GitHub App to begin monitoring repositories.';
+    $('shield-state').textContent = 'NOT INSTALLED';
+    $('shield-state').className = 'shield-state clear';
+    $('shield-meta').textContent = 'Guardian controls become available after the GitHub App is installed.';
+    $('scan').disabled = true; $('pause').disabled = true; $('shield-lock').disabled = true;
+    return;
+  }
+  $('scan').disabled = false; $('pause').disabled = false; $('shield-lock').disabled = false;
   state.selected = Number(select.value || state.installations[0].id); await loadInstallation(state.selected);
 }
 
