@@ -255,7 +255,8 @@ export function createSentinelServer(options = {}) {
       if (!resolved.startsWith(`${publicRoot}${path.sep}`)) return json(response, 404, { error: 'Not found.' });
       try {
         const stat = fs.statSync(resolved); if (!stat.isFile()) throw new Error();
-        response.writeHead(200, { 'Content-Type': mime[path.extname(resolved)] || 'application/octet-stream', 'Cache-Control': path.basename(resolved) === 'index.html' ? 'no-cache' : 'public, max-age=3600' });
+        const revalidate = new Set(['index.html', 'app.js', 'sw.js', 'manifest.webmanifest']).has(path.basename(resolved));
+        response.writeHead(200, { 'Content-Type': mime[path.extname(resolved)] || 'application/octet-stream', 'Cache-Control': revalidate ? 'no-cache' : 'public, max-age=3600' });
         if (request.method === 'HEAD') return response.end();
         return fs.createReadStream(resolved).pipe(response);
       } catch { return json(response, 404, { error: 'Not found.' }); }

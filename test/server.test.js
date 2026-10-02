@@ -14,10 +14,13 @@ test('serves health and privacy-safe public status before GitHub setup', async (
     const address = app.server.address();
     const health = await fetch(`http://127.0.0.1:${address.port}/healthz`).then((response) => response.json());
     const status = await fetch(`http://127.0.0.1:${address.port}/api/public/status`).then((response) => response.json());
+    const dashboardScript = await fetch(`http://127.0.0.1:${address.port}/app.js?v=3`);
     assert.equal(health.ok, true);
     assert.equal(health.configured, false);
     assert.equal(status.monitoring, false);
     assert.equal('githubToken' in status, false);
+    assert.equal(dashboardScript.status, 200);
+    assert.equal(dashboardScript.headers.get('cache-control'), 'no-cache');
   } finally { await app.close(); fs.rmSync(directory, { recursive: true }); }
 });
 
