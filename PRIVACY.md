@@ -9,6 +9,7 @@ Daybreak Repo Sentinel is designed to retain the least data needed for repositor
 - Installation and repository IDs, names, visibility, default branch, and scan state
 - Sanitized finding titles, bounded evidence, severity, source, and timestamps
 - Sanitized event type, action, risk, summary, and delivery ID
+- Shield incident score, signal codes, recommended review step, and an irreversible truncated hash of the webhook sender login for short-burst correlation
 - AI summaries generated from de-identified finding categories
 
 ## Not stored
@@ -18,6 +19,7 @@ Daybreak Repo Sentinel is designed to retain the least data needed for repositor
 - GitHub App installation access tokens
 - Repository secret values, Actions secret values, private keys, or password data
 - Commit messages, issue or pull-request bodies, comments, browser history, device files, or IP-address logs
+- Raw sender usernames inside Shield incident records
 
 ## AI processing
 

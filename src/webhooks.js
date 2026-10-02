@@ -1,4 +1,5 @@
 import { sha256, safeText, redactSecrets } from './security.js';
+import { assessShieldEvent, higherSeverity } from './shield.js';
 
 const severityOrder = ['info', 'low', 'medium', 'high', 'critical'];
 
@@ -112,8 +113,12 @@ export function processGitHubWebhook({ eventName, deliveryId, payload, db }) {
     for (const repo of payload.repositories_removed || []) db.removeRepository(installationId, repo.id);
   }
 
+  const recentEvents = installationId ? db.recentEvents(installationId, 100) : [];
+  const shield = assessShieldEvent({ eventName, action, payload, repository: storedRepo || repository, recentEvents, deliveryId });
   const assessment = eventAssessment(eventName, action, payload, repository);
+  assessment.risk = higherSeverity(assessment.risk, shield.severity);
   db.addEvent({ deliveryId, installationId, repoId: storedRepo?.id || null, event: safeText(eventName, 80), action, ...assessment });
+  const shieldIncident = shield.incident ? db.upsertShieldIncident(shield.incident) : null;
 
   if (installationId && storedRepo) {
     const alert = alertFinding(eventName, action, payload, installationId, storedRepo.id);
@@ -138,5 +143,6 @@ export function processGitHubWebhook({ eventName, deliveryId, payload, db }) {
   }
 
   if (installationId) db.scheduleInstallation(installationId, new Date());
-  return { accepted: true, installationId, repositoryId: storedRepo?.id || null, risk: assessment.risk };
+  return { accepted: true, installationId, repositoryId: storedRepo?.id || null, risk: assessment.risk,
+    shield: { score: shield.score, severity: shield.severity, incidentId: shieldIncident?.id || null } };
 }

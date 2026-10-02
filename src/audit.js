@@ -119,7 +119,7 @@ export async function scanInstallation({ installation, github, db, ai, config })
       for (const item of findings) { db.upsertFinding(item); seen.push(item.fingerprint); }
       db.resolveStaleScannerFindings(repo.id, seen);
       db.markRepositoryScan(repo.id, 'complete');
-      if (config.autoPublishIssues && findings.some((item) => ['critical', 'high'].includes(item.severity))) {
+      if (config.autoPublishIssues && !installation.shield_locked && findings.some((item) => ['critical', 'high'].includes(item.severity))) {
         await github.publishSecurityIssue(installationId, repo.owner, repo.name, issueBody(repo, findings));
       }
       scanned += 1;

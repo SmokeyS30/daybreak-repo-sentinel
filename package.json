@@ -1,7 +1,7 @@
 {
   "name": "daybreak-repo-sentinel",
-  "version": "0.1.0",
-  "description": "An open-source, always-on GitHub App for continuous repository security monitoring and approval-gated remediation.",
+  "version": "0.2.0",
+  "description": "Daybreak Shield: an open-source GitHub App for continuous monitoring, evidence-based incident detection, and approval-gated response.",
   "type": "module",
   "engines": {
     "node": ">=24"

@@ -1,8 +1,23 @@
-# Daybreak Repo Sentinel
+# Daybreak Shield
 
-Daybreak Repo Sentinel is an open-source, always-on GitHub App for continuous repository security monitoring. It receives signed GitHub webhooks when something new happens, performs scheduled full rescans for configuration drift, correlates native GitHub security alerts, and presents sanitized findings in a mobile-friendly dashboard.
+Daybreak Shield is the defensive evolution of Daybreak Repo Sentinel: an open-source, always-on GitHub App for continuous repository security monitoring. It receives signed GitHub webhooks when something new happens, performs scheduled full rescans for configuration drift, correlates native GitHub security alerts, and presents sanitized findings and incident signals in a mobile-friendly dashboard.
 
 Monitoring is automatic. Consequential repository changes are approval-gated.
+
+## Guardian Mode
+
+Shield uses deterministic evidence—not guesses about a person's intent—to score dangerous changes. It opens privacy-minimized incidents for signals such as:
+
+- A repository becoming public, being deleted, or being transferred
+- A writable deploy key or administrator collaborator being added
+- Branch protection being deleted, a force push, or a default-branch change
+- GitHub Actions workflow changes
+- Secret-scanning alerts and push-protection bypasses
+- Multiple urgent changes arriving within ten minutes
+
+Incident records contain bounded metadata, signal codes, an irreversible actor hash for correlation, and a recommended review step. They do not contain raw webhook payloads, secret values, commit messages, source code, or sender usernames.
+
+Guardian Lock is an owner-controlled emergency brake. After the owner types `LOCK`, Sentinel blocks its own outbound GitHub writes while signed-webhook collection and scheduled monitoring continue. Releasing the lock requires typing `UNLOCK`. Shield never infects, attacks, or retaliates against another device or account.
 
 ## What it monitors
 
@@ -30,6 +45,8 @@ Every accepted webhook schedules a fresh scan. A background worker also rescans 
 - Sends AI requests with `store: false`. Monitoring and scoring continue without an AI key.
 - Does not execute repository code, clone repositories, run scanners from pull requests, or accept arbitrary URLs.
 - Does not automatically delete, lock, dismiss, or rewrite repository data.
+- Does not label a person as a hacker; signals describe observable risk and always require human confirmation.
+- Guardian Lock blocks Sentinel's outbound GitHub writes without disabling monitoring.
 
 See [THREAT-MODEL.md](THREAT-MODEL.md) and [PRIVACY.md](PRIVACY.md).
 
@@ -121,7 +138,7 @@ The server contains an authenticated endpoint that can create or update a single
 
 ## Limits
 
-Daybreak Repo Sentinel reduces risk; it cannot guarantee that an account will not be compromised. It cannot monitor repositories where it is not installed, replace GitHub account passkeys or 2FA, inspect secret values, or access features unavailable under the repository owner's GitHub plan.
+Daybreak Shield reduces risk; it cannot guarantee that an account will not be compromised or determine a person's intent. A repository GitHub App cannot monitor personal-account sign-in sessions, replace GitHub account passkeys or 2FA, inspect secret values, or monitor repositories where it is not installed. Organization audit-log visibility depends on the owner's GitHub plan and permissions.
 
 ## License
 

@@ -36,6 +36,17 @@ function csrfRequired(request, session) {
   if (request.headers['x-sentinel-csrf'] !== session.csrf_token) throw Object.assign(new Error('Security token is missing or expired.'), { status: 403 });
 }
 
+function shieldSnapshot(installation, incidents) {
+  const highest = incidents[0] || null;
+  return {
+    locked: Boolean(installation.shield_locked),
+    level: installation.shield_locked ? 'locked' : highest?.severity || 'clear',
+    openIncidents: incidents.length,
+    highestScore: highest?.score || 0,
+    incidents
+  };
+}
+
 export function createSentinelServer(options = {}) {
   const config = options.config || loadConfig(options.env || process.env, options.overrides || {});
   const db = options.db || openDatabase(config.databasePath);
@@ -115,7 +126,7 @@ export function createSentinelServer(options = {}) {
 
     const url = new URL(request.url, config.baseUrl);
     try {
-      if (request.method === 'GET' && url.pathname === '/healthz') return json(response, 200, { ok: true, service: 'daybreak-repo-sentinel', configured: config.configured, workerBusy });
+      if (request.method === 'GET' && url.pathname === '/healthz') return json(response, 200, { ok: true, service: 'daybreak-repo-sentinel', shield: true, configured: config.configured, workerBusy });
       if (request.method === 'GET' && url.pathname === '/api/public/status') {
         const counts = config.publicMetrics ? db.publicCounts() : { installations: null, repositories: null, open_findings: null, urgent_findings: null, last_event_at: null };
         return json(response, 200, { configured: config.configured, aiConfigured: ai.configured, monitoring: config.configured, ...counts });
@@ -178,7 +189,8 @@ export function createSentinelServer(options = {}) {
         const installationMatch = url.pathname.match(/^\/api\/installations\/(\d+)$/);
         if (request.method === 'GET' && installationMatch) {
           const installation = await requireInstallationAccess(session, Number(installationMatch[1]));
-          return json(response, 200, { installation, repositories: db.listRepositories(installation.id), findings: db.listOpenFindings(installation.id), events: db.recentEvents(installation.id), summary: db.latestSummary(installation.id) || null });
+          const incidents = db.listOpenShieldIncidents(installation.id);
+          return json(response, 200, { installation, shield: shieldSnapshot(installation, incidents), repositories: db.listRepositories(installation.id), findings: db.listOpenFindings(installation.id), events: db.recentEvents(installation.id), summary: db.latestSummary(installation.id) || null });
         }
         const scanMatch = url.pathname.match(/^\/api\/installations\/(\d+)\/scan$/);
         if (request.method === 'POST' && scanMatch) {
@@ -193,6 +205,28 @@ export function createSentinelServer(options = {}) {
           db.setInstallationPaused(installation.id, pauseMatch[2] === 'pause');
           return json(response, 200, { paused: pauseMatch[2] === 'pause' });
         }
+        const shieldLockMatch = url.pathname.match(/^\/api\/installations\/(\d+)\/shield\/(lock|unlock)$/);
+        if (request.method === 'POST' && shieldLockMatch) {
+          const installation = await requireInstallationAccess(session, Number(shieldLockMatch[1]), true);
+          const action = shieldLockMatch[2];
+          const body = JSON.parse((await readBody(request, 8_000)).toString('utf8') || '{}');
+          const expected = action === 'lock' ? 'LOCK' : 'UNLOCK';
+          if (body.confirm !== expected) throw Object.assign(new Error(`Type ${expected} to confirm this Guardian Lock change.`), { status: 400 });
+          db.setShieldLocked(installation.id, action === 'lock');
+          db.addEvent({ deliveryId: `shield-${randomToken(18)}`, installationId: installation.id, event: 'shield_control', action, risk: action === 'lock' ? 'high' : 'medium',
+            title: action === 'lock' ? 'Guardian Lock engaged' : 'Guardian Lock released',
+            detail: action === 'lock' ? 'Outbound GitHub writes from Sentinel are blocked. Monitoring and signed-webhook evidence collection continue.' : 'Outbound GitHub writes may proceed only through their existing explicit approval gates.' });
+          return json(response, 200, { locked: action === 'lock' });
+        }
+        const shieldAcknowledgeMatch = url.pathname.match(/^\/api\/installations\/(\d+)\/shield\/incidents\/([0-9a-f-]+)\/acknowledge$/);
+        if (request.method === 'POST' && shieldAcknowledgeMatch) {
+          const installation = await requireInstallationAccess(session, Number(shieldAcknowledgeMatch[1]), true);
+          const body = JSON.parse((await readBody(request, 8_000)).toString('utf8') || '{}');
+          if (body.confirm !== 'ACKNOWLEDGE') throw Object.assign(new Error('Type ACKNOWLEDGE to confirm that you reviewed this incident.'), { status: 400 });
+          if (!db.acknowledgeShieldIncident(shieldAcknowledgeMatch[2], installation.id)) throw Object.assign(new Error('Open Shield incident not found.'), { status: 404 });
+          db.addEvent({ deliveryId: `shield-${randomToken(18)}`, installationId: installation.id, event: 'shield_incident', action: 'acknowledged', risk: 'info', title: 'Shield incident acknowledged', detail: 'An authorized owner marked a Shield incident reviewed. No GitHub setting was changed.' });
+          return json(response, 200, { acknowledged: true });
+        }
         const acceptMatch = url.pathname.match(/^\/api\/installations\/(\d+)\/findings\/([0-9a-f-]+)\/accept$/);
         if (request.method === 'POST' && acceptMatch) {
           const installation = await requireInstallationAccess(session, Number(acceptMatch[1]), true);
@@ -202,6 +236,7 @@ export function createSentinelServer(options = {}) {
         const publishMatch = url.pathname.match(/^\/api\/installations\/(\d+)\/repositories\/(\d+)\/publish$/);
         if (request.method === 'POST' && publishMatch) {
           const installation = await requireInstallationAccess(session, Number(publishMatch[1]), true);
+          if (installation.shield_locked) throw Object.assign(new Error('Guardian Lock is engaged. Release it before publishing to GitHub.'), { status: 423 });
           const body = JSON.parse((await readBody(request, 32_000)).toString('utf8') || '{}');
           if (body.confirm !== 'PUBLISH') throw Object.assign(new Error('Type PUBLISH to confirm creating or updating the GitHub issue.'), { status: 400 });
           const repo = db.getRepositoryById(installation.id, Number(publishMatch[2]));

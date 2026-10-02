@@ -16,6 +16,7 @@ export function openDatabase(filePath) {
     CREATE TABLE IF NOT EXISTS installations (
       id INTEGER PRIMARY KEY, account_login TEXT NOT NULL, account_type TEXT NOT NULL,
       target_type TEXT, suspended INTEGER NOT NULL DEFAULT 0, paused INTEGER NOT NULL DEFAULT 0,
+      shield_locked INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_scan_at TEXT, next_scan_at TEXT
     );
     CREATE TABLE IF NOT EXISTS repositories (
@@ -54,6 +55,17 @@ export function openDatabase(filePath) {
       id TEXT PRIMARY KEY, installation_id INTEGER NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
       summary TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS shield_incidents (
+      id TEXT PRIMARY KEY, incident_key TEXT NOT NULL UNIQUE,
+      installation_id INTEGER NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
+      repo_id INTEGER REFERENCES repositories(id) ON DELETE CASCADE,
+      severity TEXT NOT NULL CHECK(severity IN ('critical','high','medium','low','info')),
+      score INTEGER NOT NULL CHECK(score BETWEEN 0 AND 100), title TEXT NOT NULL,
+      evidence TEXT NOT NULL, actor_hash TEXT, signals_json TEXT NOT NULL,
+      recommended_action TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('open','acknowledged')) DEFAULT 'open',
+      first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, acknowledged_at TEXT
+    );
     -- approval_actions was scaffolded in v0.1.0 but never used; the approval
     -- gate for consequential changes is the explicit confirmation step
     -- (e.g. typing PUBLISH before a security report is posted as an issue).
@@ -62,8 +74,12 @@ export function openDatabase(filePath) {
     CREATE INDEX IF NOT EXISTS idx_findings_installation ON findings(installation_id, status, severity);
     CREATE INDEX IF NOT EXISTS idx_findings_repo ON findings(repo_id, status);
     CREATE INDEX IF NOT EXISTS idx_events_installation ON events(installation_id, received_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_shield_installation ON shield_incidents(installation_id, status, score DESC);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
   `);
+
+  const installationColumns = new Set(sql.prepare('PRAGMA table_info(installations)').all().map((column) => column.name));
+  if (!installationColumns.has('shield_locked')) sql.exec('ALTER TABLE installations ADD COLUMN shield_locked INTEGER NOT NULL DEFAULT 0');
 
   const statements = {
     installation: sql.prepare('SELECT * FROM installations WHERE id=?'),
@@ -76,6 +92,7 @@ export function openDatabase(filePath) {
       account_type=excluded.account_type,target_type=excluded.target_type,suspended=excluded.suspended,updated_at=excluded.updated_at`),
     suspendInstallation: sql.prepare('UPDATE installations SET suspended=?,updated_at=? WHERE id=?'),
     pauseInstallation: sql.prepare('UPDATE installations SET paused=?,updated_at=? WHERE id=?'),
+    shieldLockInstallation: sql.prepare('UPDATE installations SET shield_locked=?,updated_at=? WHERE id=?'),
     scheduleInstallation: sql.prepare('UPDATE installations SET next_scan_at=?,updated_at=? WHERE id=?'),
     completeScan: sql.prepare('UPDATE installations SET last_scan_at=?,next_scan_at=?,updated_at=? WHERE id=?'),
     repo: sql.prepare('SELECT * FROM repositories WHERE installation_id=? AND full_name=?'),
@@ -100,6 +117,17 @@ export function openDatabase(filePath) {
     recentEvents: sql.prepare('SELECT * FROM events WHERE installation_id=? ORDER BY received_at DESC LIMIT ?'),
     addEvent: sql.prepare('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)'),
     event: sql.prepare('SELECT delivery_id FROM events WHERE delivery_id=?'),
+    shieldIncidentByKey: sql.prepare('SELECT * FROM shield_incidents WHERE incident_key=?'),
+    shieldIncidentById: sql.prepare('SELECT * FROM shield_incidents WHERE id=? AND installation_id=?'),
+    insertShieldIncident: sql.prepare(`INSERT INTO shield_incidents
+      (id,incident_key,installation_id,repo_id,severity,score,title,evidence,actor_hash,signals_json,recommended_action,status,first_seen_at,last_seen_at,acknowledged_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,NULL)`),
+    updateShieldIncident: sql.prepare(`UPDATE shield_incidents SET severity=?,score=?,title=?,evidence=?,actor_hash=?,signals_json=?,recommended_action=?,status='open',last_seen_at=?,acknowledged_at=NULL WHERE incident_key=?`),
+    openShieldIncidents: sql.prepare(`SELECT shield_incidents.*,repositories.full_name FROM shield_incidents
+      LEFT JOIN repositories ON repositories.id=shield_incidents.repo_id
+      WHERE shield_incidents.installation_id=? AND shield_incidents.status='open'
+      ORDER BY score DESC,last_seen_at DESC LIMIT ?`),
+    acknowledgeShieldIncident: sql.prepare(`UPDATE shield_incidents SET status='acknowledged',acknowledged_at=?,last_seen_at=? WHERE id=? AND installation_id=? AND status='open'`),
     upsertUser: sql.prepare(`INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(github_id) DO UPDATE SET login=excluded.login,avatar_url=excluded.avatar_url,updated_at=excluded.updated_at`),
     user: sql.prepare('SELECT * FROM users WHERE github_id=?'),
     addSession: sql.prepare('INSERT INTO sessions VALUES(?,?,?,?,?,?)'),
@@ -144,6 +172,7 @@ export function openDatabase(filePath) {
     dueInstallations: (limit = 5) => statements.dueInstallations.all(now(), limit),
     setInstallationSuspended(id, suspended) { statements.suspendInstallation.run(suspended ? 1 : 0, now(), id); },
     setInstallationPaused(id, paused) { statements.pauseInstallation.run(paused ? 1 : 0, now(), id); },
+    setShieldLocked(id, locked) { statements.shieldLockInstallation.run(locked ? 1 : 0, now(), id); },
     scheduleInstallation(id, date = new Date()) { statements.scheduleInstallation.run(date.toISOString(), now(), id); },
     completeInstallationScan(id, nextDate) { const stamp = now(); statements.completeScan.run(stamp, nextDate.toISOString(), stamp, id); },
     upsertRepository(installationId, repo) { const owner = repo.owner?.login || String(repo.full_name || '').split('/')[0]; const name = repo.name || String(repo.full_name || '').split('/')[1]; statements.upsertRepo.run(repo.id, installationId, owner, name, repo.full_name || `${owner}/${name}`, repo.private ? 1 : 0, repo.archived ? 1 : 0, repo.default_branch || 'main', repo.visibility || (repo.private ? 'private' : 'public'), now()); return statements.repo.get(installationId, repo.full_name || `${owner}/${name}`); },
@@ -160,6 +189,21 @@ export function openDatabase(filePath) {
     hasDelivery: (deliveryId) => Boolean(statements.event.get(deliveryId)),
     addEvent(event) { statements.addEvent.run(event.deliveryId, event.installationId || null, event.repoId || null, event.event, event.action || null, event.risk, event.title, event.detail, now()); },
     recentEvents: (installationId, limit = 100) => statements.recentEvents.all(installationId, Math.min(limit, 250)),
+    upsertShieldIncident(incident) {
+      if (!incident.installationId) return null;
+      const existing = statements.shieldIncidentByKey.get(incident.incidentKey);
+      const stamp = now();
+      const signalsJson = JSON.stringify((incident.signals || []).slice(0, 20));
+      if (existing) {
+        statements.updateShieldIncident.run(incident.severity, incident.score, incident.title, incident.evidence, incident.actorHash || null, signalsJson, incident.recommendedAction, stamp, incident.incidentKey);
+        return statements.shieldIncidentByKey.get(incident.incidentKey);
+      }
+      const id = randomUUID();
+      statements.insertShieldIncident.run(id, incident.incidentKey, incident.installationId, incident.repoId || null, incident.severity, incident.score, incident.title, incident.evidence, incident.actorHash || null, signalsJson, incident.recommendedAction, stamp, stamp);
+      return statements.shieldIncidentById.get(id, incident.installationId);
+    },
+    listOpenShieldIncidents: (installationId, limit = 100) => statements.openShieldIncidents.all(installationId, Math.min(limit, 250)).map((row) => ({ ...row, signals: JSON.parse(row.signals_json) })),
+    acknowledgeShieldIncident(id, installationId) { const stamp = now(); return statements.acknowledgeShieldIncident.run(stamp, stamp, id, installationId).changes > 0; },
     upsertUser(user) { const stamp = now(); statements.upsertUser.run(user.id, user.login, user.avatar_url || null, stamp, stamp); return statements.user.get(user.id); },
     createSession({ tokenHash, userId, githubTokenEncrypted, csrfToken, expiresAt }) { statements.addSession.run(tokenHash, userId, githubTokenEncrypted, csrfToken, expiresAt, now()); },
     getSession: (tokenHash) => statements.session.get(tokenHash, now()),

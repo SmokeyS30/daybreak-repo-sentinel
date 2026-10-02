@@ -13,3 +13,5 @@ The latest release on the default branch is supported during the initial develop
 ## Defensive scope
 
 This project is for authorized defensive monitoring. It must not be used to access, test, alter, or monitor repositories without the owner's GitHub App installation and permissions.
+
+Daybreak Shield must never be extended with malware, credential theft, exploit delivery, retaliation, or hack-back behavior. Incident scores are triage signals only; maintainers and operators must verify activity in GitHub before changing access or repository settings.

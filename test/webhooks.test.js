@@ -37,3 +37,15 @@ test('new workflow files schedule a scan and create a bounded finding', () => {
     assert.equal(db.dueInstallations(5)[0].id, 91);
   } finally { db.close(); fs.rmSync(directory, { recursive: true }); }
 });
+
+test('Shield opens an incident for a force push without storing the sender login', () => {
+  const { db, directory } = setup();
+  try {
+    const result = processGitHubWebhook({ eventName: 'push', deliveryId: 'delivery-force-123', payload: { ...base, forced: true, sender: { login: 'private-actor-name' }, commits: [] }, db });
+    assert.equal(result.shield.severity, 'high');
+    const incidents = db.listOpenShieldIncidents(91);
+    assert.equal(incidents.length, 1);
+    assert.equal(incidents[0].signals.includes('force-push'), true);
+    assert.equal(JSON.stringify(incidents).includes('private-actor-name'), false);
+  } finally { db.close(); fs.rmSync(directory, { recursive: true }); }
+});

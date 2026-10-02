@@ -1,7 +1,7 @@
 {
-  "name": "Daybreak Repo Sentinel",
-  "short_name": "Repo Sentinel",
-  "description": "Continuous GitHub repository security monitoring.",
+  "name": "Daybreak Shield",
+  "short_name": "Daybreak Shield",
+  "description": "Evidence-based, approval-gated GitHub repository defense.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050b13",

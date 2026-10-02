@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Continuous, approval-gated GitHub repository security monitoring.">
-  <title>Daybreak Repo Sentinel</title>
+  <title>Daybreak Shield</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/sentinel.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
@@ -13,12 +13,12 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/"><img src="/sentinel.svg" alt=""><span>Daybreak Repo Sentinel</span></a>
+    <a class="brand" href="/"><img src="/sentinel.svg" alt=""><span>Daybreak Shield</span></a>
     <div class="actions"><span id="identity"></span><a id="login" class="button secondary" href="/auth/github">Sign in with GitHub</a><button id="logout" class="button ghost hidden">Sign out</button></div>
   </header>
   <main>
     <section class="hero">
-      <div><p class="eyebrow">OPEN-SOURCE GITHUB DEFENSE</p><h1>Your repositories deserve a night watch.</h1><p class="lede">Signed webhooks catch new security events immediately. Scheduled rescans find configuration drift. AI explains sanitized findings; you approve consequential changes.</p><div class="hero-actions"><a id="install" class="button primary" href="/github/install">Install GitHub App</a><a class="button secondary" href="https://github.com/SmokeyS30/daybreak-repo-sentinel">View source</a></div></div>
+      <div><p class="eyebrow">DEFENSIVE GITHUB GUARDIAN</p><h1>Your repositories deserve a night watch.</h1><p class="lede">Daybreak Shield scores dangerous changes, correlates incident bursts, and preserves privacy-minimized evidence. It never retaliates or changes GitHub without your explicit approval.</p><div class="hero-actions"><a id="install" class="button primary" href="/github/install">Install GitHub App</a><a class="button secondary" href="https://github.com/SmokeyS30/daybreak-repo-sentinel">View source</a></div></div>
       <div class="status-card"><div class="pulse"></div><p class="label">MONITORING STATUS</p><h2 id="monitoring">Checking…</h2><dl><div><dt>Installations</dt><dd id="metric-installations">—</dd></div><div><dt>Repositories</dt><dd id="metric-repositories">—</dd></div><div><dt>Urgent findings</dt><dd id="metric-urgent">—</dd></div></dl><p id="last-event" class="muted">No event data yet.</p></div>
     </section>
 
@@ -34,12 +34,17 @@
         <aside class="panel controls"><h3 id="account-name">Installation</h3><p id="scan-meta" class="muted">Waiting for a scan.</p><button id="scan" class="button primary block">Scan now</button><button id="pause" class="button secondary block">Pause monitoring</button><p class="fine">Emergency pause stops scheduled scanning. Signed webhooks remain acknowledged and auditable.</p></aside>
         <section class="panel summary"><p class="label">LATEST SUMMARY</p><pre id="summary">No completed scan yet.</pre></section>
       </div>
+      <div class="panel shield-panel">
+        <div><p class="label">DAYBREAK SHIELD</p><h3 id="shield-state" class="shield-state clear">CHECKING</h3><p id="shield-meta" class="muted">Loading Guardian status.</p></div>
+        <button id="shield-lock" class="button danger">Engage Guardian Lock</button>
+      </div>
       <div class="dashboard-grid lower">
         <section class="panel"><div class="panel-heading"><h3>Open findings</h3><span id="finding-count" class="badge">0</span></div><div id="findings" class="list empty">No open findings.</div></section>
         <section class="panel"><div class="panel-heading"><h3>Recent activity</h3><span class="live-dot">LIVE</span></div><div id="events" class="list empty">No events received.</div></section>
       </div>
+      <section class="panel incidents-panel"><div class="panel-heading"><h3>Shield incidents</h3><span class="live-dot">EVIDENCE</span></div><p class="fine">Signals indicate risk, not intent. Confirm every incident in GitHub before taking action.</p><div id="shield-incidents" class="list empty">No open Shield incidents.</div></section>
     </section>
   </main>
-  <footer><p>Defensive monitoring only. Sentinel reports risk; it does not guarantee that an account cannot be compromised.</p></footer>
+  <footer><p>Defensive monitoring only. Shield reports evidence-based risk; it does not identify people as hackers or guarantee that an account cannot be compromised.</p></footer>
 </body>
 </html>
