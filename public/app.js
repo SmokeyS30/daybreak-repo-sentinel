@@ -2,10 +2,14 @@ const $ = (id) => document.getElementById(id);
 const state = { csrf: null, installations: [], selected: null, shieldLocked: false };
 
 async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(state.csrf ? { 'X-Sentinel-CSRF': state.csrf } : {}), ...(options.headers || {}) } });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.error || `HTTP ${response.status}`), { status: response.status });
-  return payload;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...(state.csrf ? { 'X-Sentinel-CSRF': state.csrf } : {}), ...(options.headers || {}) } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(payload.error || `HTTP ${response.status}`), { status: response.status });
+    return payload;
+  } finally { clearTimeout(timeout); }
 }
 
 function fmtDate(value) { if (!value) return 'Never'; const date = new Date(value); return Number.isNaN(date.valueOf()) ? 'Unknown' : date.toLocaleString(); }
@@ -47,7 +51,15 @@ async function loadSession() {
     const me = await api('/api/me'); state.csrf = me.csrf;
     $('identity').textContent = `@${me.user.login}`; $('login').classList.add('hidden'); $('logout').classList.remove('hidden'); $('dashboard').classList.remove('hidden');
     await loadInstallations();
-  } catch (error) { if (error.status !== 401) console.error(error.message); }
+  } catch (error) {
+    if (error.status !== 401) {
+      console.error(error.message);
+      $('shield-state').textContent = 'CHECK UNAVAILABLE';
+      $('shield-state').className = 'shield-state medium';
+      $('shield-meta').textContent = 'GitHub did not answer the installation check. Reload the page or sign in again; monitoring continues on the server.';
+      $('scan').disabled = true; $('pause').disabled = true; $('shield-lock').disabled = true;
+    }
+  }
 }
 
 async function loadInstallations() {

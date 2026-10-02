@@ -14,7 +14,7 @@ test('serves health and privacy-safe public status before GitHub setup', async (
     const address = app.server.address();
     const health = await fetch(`http://127.0.0.1:${address.port}/healthz`).then((response) => response.json());
     const status = await fetch(`http://127.0.0.1:${address.port}/api/public/status`).then((response) => response.json());
-    const dashboardScript = await fetch(`http://127.0.0.1:${address.port}/app.js?v=3`);
+    const dashboardScript = await fetch(`http://127.0.0.1:${address.port}/app.js?v=4`);
     assert.equal(health.ok, true);
     assert.equal(health.configured, false);
     assert.equal(status.monitoring, false);
