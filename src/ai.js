@@ -12,6 +12,12 @@ export function createAiTriage(config, { fetchImpl = fetch, stats = null } = {})
   const model = config.model?.trim() || 'gpt-5.4-mini';
   const baseUrl = new URL(config.baseUrl || 'https://api.openai.com/v1');
   if (baseUrl.protocol !== 'https:') throw new Error('OPENAI_BASE_URL must use HTTPS.');
+  // Azure OpenAI uses the `api-key` header instead of `Authorization: Bearer`,
+  // and the model field carries the Azure deployment name.
+  const isAzure = /\.openai\.azure\.com$/i.test(baseUrl.hostname);
+  const authHeaders = isAzure
+    ? { 'api-key': apiKey }
+    : { Authorization: `Bearer ${apiKey}` };
 
   return {
     configured: Boolean(apiKey),
@@ -22,7 +28,7 @@ export function createAiTriage(config, { fetchImpl = fetch, stats = null } = {})
       const signals = findings.slice(0, 80).map((item) => ({ severity: item.severity, title: safeText(item.title, 160), source: safeText(item.source, 60) }));
       const response = await fetchImpl(`${baseUrl.toString().replace(/\/$/, '')}/responses`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           store: false,
