@@ -49,7 +49,7 @@ function eventSignals(eventName, action, payload) {
     signals.push(signal('workflow-changed', 35, 'GitHub Actions workflow changed', 'Review the workflow diff, token permissions, action pins, and untrusted-input handling.'));
   }
   if (eventName === 'member' && action === 'added') {
-    const permission = String(payload.changes?.permission?.to || payload.member?.permissions?.admin && 'admin' || '').toLowerCase();
+    const permission = String(payload.changes?.permission?.to || (payload.member?.permissions?.admin && 'admin') || '').toLowerCase();
     signals.push(signal(permission === 'admin' ? 'admin-collaborator-added' : 'collaborator-added', permission === 'admin' ? 60 : 35,
       permission === 'admin' ? 'Administrator collaborator was added' : 'Repository collaborator was added', 'Confirm the collaborator and granted role in GitHub.'));
   }
@@ -72,6 +72,13 @@ function recentUrgentCount(recentEvents, nowMs) {
   return recentEvents.filter((event) => ['critical', 'high'].includes(event.risk) && Date.parse(event.received_at) >= cutoff).length;
 }
 
+function incidentKeyFor({ eventName, action, target, deliveryId, now }) {
+  // deliveryId is unique per webhook; the fallback adds randomness so two
+  // webhooks in the same millisecond can't silently merge into one incident.
+  const seed = deliveryId || [eventName, action, target, now.toISOString(), Math.random().toString(36).slice(2)].join(':');
+  return 'shield:' + sha256(seed);
+}
+
 export function assessShieldEvent({ eventName, action, payload, repository = null, recentEvents = [], deliveryId, now = new Date() }) {
   const signals = eventSignals(eventName, action, payload);
   const burstCount = recentUrgentCount(recentEvents, now.valueOf());
@@ -88,7 +95,7 @@ export function assessShieldEvent({ eventName, action, payload, repository = nul
 
   if (!primary || score < 30) return { score, severity, signals: signals.map(({ code }) => code), incident: null };
   const incident = {
-    incidentKey: `shield:${sha256(String(deliveryId || `${eventName}:${action}:${target}:${now.toISOString()}`))}`,
+    incidentKey: incidentKeyFor({ eventName, action, target, deliveryId, now }),
     installationId: Number(payload.installation?.id || 0) || null,
     repoId: repository?.id || null,
     severity,
@@ -101,6 +108,8 @@ export function assessShieldEvent({ eventName, action, payload, repository = nul
   };
   return { score, severity, signals: incident.signals, incident };
 }
+
+export { incidentKeyFor };
 
 export function higherSeverity(left, right) {
   return severityRank[left] >= severityRank[right] ? left : right;

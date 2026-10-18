@@ -53,6 +53,27 @@ test('stores Shield incidents and keeps Guardian Lock independent from monitorin
   } finally { db.close(); fs.rmSync(directory, { recursive: true }); }
 });
 
+test('tracks when an acknowledged Shield incident is reopened by new signals', () => {
+  const { db, directory } = database();
+  try {
+    db.upsertInstallation({ id: 1, accountLogin: 'one', accountType: 'User' });
+    const make = (sev, score) => db.upsertShieldIncident({ incidentKey: 'shield:reopen', installationId: 1, repoId: null, severity: sev, score,
+      title: 't', evidence: 'e', actorHash: null, signals: ['force-push'], recommendedAction: 'r' });
+    const first = make('high', 70);
+    assert.equal(first.reopened_count, 0);
+    // New signals on an open incident: no reopen counted.
+    const updated = make('high', 75);
+    assert.equal(updated.reopened_count, 0);
+    assert.equal(db.listOpenShieldIncidents(1).length, 1);
+    // Acknowledge, then new signals arrive: reopened and counted.
+    assert.equal(db.acknowledgeShieldIncident(first.id, 1), true);
+    const reopened = make('critical', 85);
+    assert.equal(reopened.status, 'open');
+    assert.equal(reopened.reopened_count, 1);
+    assert.equal(db.listOpenShieldIncidents(1).length, 1);
+  } finally { db.close(); fs.rmSync(directory, { recursive: true }); }
+});
+
 test('migrates an existing installation table to Guardian Lock without losing data', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-sentinel-migration-'));
   const file = path.join(directory, 'legacy.sqlite');

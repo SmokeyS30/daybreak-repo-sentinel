@@ -64,7 +64,8 @@ export function openDatabase(filePath) {
       evidence TEXT NOT NULL, actor_hash TEXT, signals_json TEXT NOT NULL,
       recommended_action TEXT NOT NULL,
       status TEXT NOT NULL CHECK(status IN ('open','acknowledged')) DEFAULT 'open',
-      first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, acknowledged_at TEXT
+      first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, acknowledged_at TEXT,
+      reopened_count INTEGER NOT NULL DEFAULT 0
     );
     -- approval_actions was scaffolded in v0.1.0 but never used; the approval
     -- gate for consequential changes is the explicit confirmation step
@@ -80,6 +81,8 @@ export function openDatabase(filePath) {
 
   const installationColumns = new Set(sql.prepare('PRAGMA table_info(installations)').all().map((column) => column.name));
   if (!installationColumns.has('shield_locked')) sql.exec('ALTER TABLE installations ADD COLUMN shield_locked INTEGER NOT NULL DEFAULT 0');
+  const shieldColumns = new Set(sql.prepare('PRAGMA table_info(shield_incidents)').all().map((column) => column.name));
+  if (!shieldColumns.has('reopened_count')) sql.exec('ALTER TABLE shield_incidents ADD COLUMN reopened_count INTEGER NOT NULL DEFAULT 0');
 
   const statements = {
     installation: sql.prepare('SELECT * FROM installations WHERE id=?'),
@@ -122,7 +125,7 @@ export function openDatabase(filePath) {
     insertShieldIncident: sql.prepare(`INSERT INTO shield_incidents
       (id,incident_key,installation_id,repo_id,severity,score,title,evidence,actor_hash,signals_json,recommended_action,status,first_seen_at,last_seen_at,acknowledged_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'open',?,?,NULL)`),
-    updateShieldIncident: sql.prepare(`UPDATE shield_incidents SET severity=?,score=?,title=?,evidence=?,actor_hash=?,signals_json=?,recommended_action=?,status='open',last_seen_at=?,acknowledged_at=NULL WHERE incident_key=?`),
+    updateShieldIncident: sql.prepare(`UPDATE shield_incidents SET severity=?,score=?,title=?,evidence=?,actor_hash=?,signals_json=?,recommended_action=?,reopened_count=reopened_count+CASE WHEN status='acknowledged' THEN 1 ELSE 0 END,status='open',last_seen_at=?,acknowledged_at=NULL WHERE incident_key=?`),
     openShieldIncidents: sql.prepare(`SELECT shield_incidents.*,repositories.full_name FROM shield_incidents
       LEFT JOIN repositories ON repositories.id=shield_incidents.repo_id
       WHERE shield_incidents.installation_id=? AND shield_incidents.status='open'
